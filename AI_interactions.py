@@ -8,18 +8,17 @@ class Credentials():
         'loads all credentials and model'
         load_dotenv(dotenv_path=Path('.env'))
         
-        llm_api_key = os.getenv('openai.api_key')
-        llm_base_url = os.getenv('openai.api_base')
-        llm_version = os.getenv('openai.api_version')
+        self.llm_api_key = os.getenv('openai.api_key')
+        self.llm_base_url = os.getenv('openai.api_base')
+        self.llm_version = os.getenv('openai.api_version')
 
         self.model = LLM(
             model = 'azure/gpt-4o',
-            api_base = llm_base_url,
-            api_key = llm_api_key,
-            api_version = llm_version,
+            api_base = self.llm_base_url,
+            api_key = self.llm_api_key,
+            api_version = self.llm_version,
         )
 
-        self.website='https://donation.watch/en/unitedkingdom/2024/donors'
 
 
 class Scraper(Credentials):
