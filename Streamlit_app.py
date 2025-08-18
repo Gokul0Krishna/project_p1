@@ -1,13 +1,21 @@
 import streamlit as st
-from ai_brain import brain
-def main():
-    ai=brain()
-    st.title("prototype_V1")
-    prompt = st.chat_input("Hello")
-    if prompt:
-        st.text(f"user:{prompt}")
-        result=ai.chatinput(prompt)
-        st.text(f'AI:{result}')
+def form():
+    with st.form("my_form"):
+        st.write("Inside the form")
+        user_name = st.text_input("Enter your name:")
+        slider_val = st.slider("Form slider",min_value=1,max_value=20)
+        submitted = st.form_submit_button("Submit")
+        if submitted:
+            return True
 
+def main():
+    st.title("prototype_V1")
+    with st.form("my_form"):
+        st.write("Inside the form")
+        user_name = st.text_input("Enter your name:")
+        slider_val = st.slider("Form slider",min_value=1,max_value=20)
+        submitted = st.form_submit_button("Submit")
+        if submitted:
+            return True
 if __name__=='__main__':
     main()
