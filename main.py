@@ -11,9 +11,9 @@ def main():
             if len(txt)<1000:
                 pass
             chunks = encoder.chunking(text=txt)
-            encoder.embedder(chunks=chunks)
-            
+            encoder.embedder(chunks=chunks,source_id=i)
         
-            
+        
+    
 if __name__=='__main__':
     main()
