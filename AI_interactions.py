@@ -2,9 +2,14 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 from crewai import Agent, Task, Crew ,LLM
+from crewai.tools import BaseTool
+from pydantic import BaseModel, Field
 from langchain_chroma import Chroma
 from langchain_openai import AzureOpenAIEmbeddings
+from typing import Type
 # from rank_bm25 import BM25Okapi
+
+
 
 class Credentials():
     def __init__(self):
@@ -38,8 +43,55 @@ class Retriever(Credentials):
                                 )
     def retrieve(self,query:str,top_k=3):
         return self.vectorstore.similarity_search(query, k=top_k)
-        
+
+class RetrieverInput(BaseModel):
+    """Input schema for HybridRetriever."""
+    query: str = Field(..., description="The user query to search for relevant documents.")
+
+# --- Tool definition ---
+class RetrieverTool(BaseTool,Retriever):
+    name: str = "HybridRetriever"
+    description: str = "Fetches relevant documents from the vector database to support reasoning."
+    args_schema: Type[BaseModel] = RetrieverInput
+
+    def _run(self,**kwargs)->str:
+        """Run retrieval with user query."""
+        query = kwargs.get("query")
+        docs = Retriever.retrieve(query)
+        return "\n".join([d.page_content for d in docs]) if docs else "No documents found."
+
+
+class Myagent(Retriever):
+    def __init__(self):
+        super().__init__()
+
+        self.retriever_tool = RetrieverTool()
+
+        self.reasoning_agent = Agent(
+                                role="Reasoner",
+                                goal="Answer user queries using retrieved context",
+                                backstory="An expert at analyzing and summarizing knowledge from documents.",
+                                llm=self.model,   # or another LLM
+                                tools=[self.retriever_tool],  # give it the retriever tool
+                                verbose=True
+                                )      
+
+        self.reasoning_task = Task(
+                                description="Answer the user query: {query}. Use the retriever tool first to gather context, then reason over it.",
+                                expected_output="A clear, helpful answer to the query.",
+                                agent=self.reasoning_agent
+                                )
+        self.crew = Crew(
+                    agents=[self.reasoning_agent],
+                    tasks=[self.reasoning_task],
+                    process="sequential",
+                    verbose=True
+                    )
+    def run(self):
+        return self.crew.kickoff(inputs={"query": 'Which countries are ODA eligible?'})
+
 
 if __name__=="__main__":
-    ret=Retriever()
-    print(ret.retrieve('Which countries are ODA eligible?'))
+    ai=Myagent()
+    print(ai.run())
+    
