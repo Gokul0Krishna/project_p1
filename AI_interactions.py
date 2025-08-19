@@ -2,10 +2,8 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 from crewai import Agent, Task, Crew ,LLM
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_chroma import Chroma
 from langchain_openai import AzureOpenAIEmbeddings
-
-from chromadb import Client
 # from rank_bm25 import BM25Okapi
 
 class Credentials():
@@ -24,13 +22,24 @@ class Credentials():
             api_version = self.llm_version,
         )
 
-class HybridRetriever(Credentials):
-    def __init__(self, docs):
-       pass 
-
-
-
-
+class Retriever(Credentials):
+    def __init__(self):
+        super().__init__()
+        self.embedding = AzureOpenAIEmbeddings( azure_deployment = "embedding-ada",
+                                                openai_api_version = "2023-05-15",
+                                                api_key = self.llm_api_key,
+                                                azure_endpoint = self.llm_base_url
+                                                )   
+    
+        self.vectorstore = Chroma(
+                                collection_name = "donors",
+                                persist_directory = "chroma_store",  
+                                embedding_function = self.embedding
+                                )
+    def retrieve(self,query:str,top_k=3):
+        return self.vectorstore.similarity_search(query, k=top_k)
+        
 
 if __name__=="__main__":
-    pass
+    ret=Retriever()
+    print(ret.retrieve('Which countries are ODA eligible?'))
