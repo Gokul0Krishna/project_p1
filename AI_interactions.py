@@ -166,17 +166,22 @@ class Myagent(Retriever):
         )
         decision = decision_crew.kickoff(inputs={"query": query})
         print(f"[Decider] Decision: {decision}")
-        if "Save." in decision:
+        if "Save" in str(decision):
             return self.websitesaver_tool._run(website=query)
-        elif "Query" in decision:
+
+        elif "Query" in str(decision):
             return self.crew.kickoff(inputs={"query": query})
 
+        else:
+            return f"⚠️ Unknown decision: {decision}"
+
 if __name__=="__main__":
-    # obj=Myagent()
-    # print(obj.run(query='which are the (ODA)-eligible countries'))
-    # print(obj.run(query='save website https://www.chathamhouse.org/topics/refugees-and-migration'))
+    obj=Myagent()
+    print('query')
+    print(obj.run(query='which are the (ODA)-eligible countries'))
+    print('save')
+    print(obj.run(query='save website https://www.chathamhouse.org/topics/refugees-and-migration'))
     # retriever = Retriever()
     # results = retriever.retrieve("ODA countries")
     # print(results)
-    retriever = WebsitesaverTool()
-    print(retriever._run(website='save website https://www.chathamhouse.org/topics/refugees-and-migration'))
+    
