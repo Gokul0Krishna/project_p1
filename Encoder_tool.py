@@ -25,10 +25,15 @@ class Encoder():
         self.keyword_index = None
         self.a=[]
 
-    def save_keywords(self, filename="keywords.json"):
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(self.documents_store, f, ensure_ascii=False, indent=2)
-
+    def checking(self,website:str)->bool:
+        'checkes if the website already exists'
+        with open('websites.txt','r+') as file:
+            for i in file:  
+                i = i.replace('\n','')
+                if website == i:
+                    return False
+            return True
+        
     def chunking(self,text:str):
         return self.splitter.split_text(text)
         

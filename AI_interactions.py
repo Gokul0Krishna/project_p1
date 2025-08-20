@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from langchain_chroma import Chroma
 from langchain_openai import AzureOpenAIEmbeddings
 from typing import Type
+from Encoder_tool import Encoder
 # from rank_bm25 import BM25Okapi
 
 
@@ -44,35 +45,83 @@ class Retriever(Credentials):
     def retrieve(self,query:str,top_k=3):
         return self.vectorstore.similarity_search(query, k=top_k)
 
-class RetrieverInput(BaseModel):
+class RagretrieverInput(BaseModel):
     """Input schema for HybridRetriever."""
     query: str = Field(..., description="The user query to search for relevant documents.")
 
 # --- Tool definition ---
-class RetrieverTool(BaseTool,Retriever):
-    name: str = "HybridRetriever"
+class RagretrieverTool(BaseTool):
+    name: str = "Retriever"
     description: str = "Fetches relevant documents from the vector database to support reasoning."
-    args_schema: Type[BaseModel] = RetrieverInput
+    args_schema: Type[BaseModel] = RagretrieverInput
 
-    def _run(self,**kwargs)->str:
+    def _run(self,query:str,**kwargs)->str:
         """Run retrieval with user query."""
-        query = kwargs.get("query")
-        docs = Retriever.retrieve(query)
+        cred=Credentials()
+        embedding = AzureOpenAIEmbeddings( azure_deployment = "embedding-ada",
+                                                openai_api_version = "2023-05-15",
+                                                api_key = cred.llm_api_key,
+                                                azure_endpoint = cred.llm_base_url
+                                                )   
+    
+        vectorstore = Chroma(
+                                collection_name = "donors",
+                                persist_directory = "chroma_store",  
+                                embedding_function = embedding
+                                )
+        print(f"[RetrieverTool] Running retrieval for query: {query}")
+        docs=vectorstore.similarity_search(query, k=3)
+        print(f"[RetrieverTool] Found {len(docs)} docs")
         return "\n".join([d.page_content for d in docs]) if docs else "No documents found."
+
+
+class Websitesaver(BaseModel):
+    """Input schema for Websitesaver."""
+    query: str = Field(..., description="url of a website")
+
+# --- Tool definition ---
+class WebsitesaverTool(BaseTool):
+    name: str = "Website saver tool"
+    description: str = "Stores the given data"
+    args_schema: Type[BaseModel] = RagretrieverInput
+
+    def _run(self,website:str,**kwargs)->str:
+        """saves the given website."""
+        
 
 
 class Myagent(Retriever):
     def __init__(self):
         super().__init__()
 
-        self.retriever_tool = RetrieverTool()
+        self.ragretriever_tool = RagretrieverTool()
+        self.decider = Agent(
+            role="Decider",
+            goal="Decide which path to follow based on the reasoning output.",
+            backstory="Acts like a traffic controller. Looks at reasoning results and chooses the right workflow branch.",
+            llm=self.model,
+            verbose=True
+        )
+
+        self.decision_task = Task(
+            description=(
+                "Look at the reasoning output: {reasoning_output}. "
+                "Decide ONE path:\n"
+                "- If it's factual knowledge → assign Summarizer.\n"
+                "- If it looks like structured data / analysis → assign DB Analyst.\n"
+                "Answer ONLY with the chosen role."
+            ),
+            expected_output="Either 'Summarizer' or 'DB Analyst'.",
+            agent=self.decider
+        )
+
 
         self.reasoning_agent = Agent(
                                 role="Reasoner",
                                 goal="Answer user queries using retrieved context",
                                 backstory="An expert at analyzing and summarizing knowledge from documents.",
                                 llm=self.model,   # or another LLM
-                                tools=[self.retriever_tool],  # give it the retriever tool
+                                tools=[self.ragretriever_tool],  # give it the retriever tool
                                 verbose=True
                                 )      
 
@@ -87,11 +136,16 @@ class Myagent(Retriever):
                     process="sequential",
                     verbose=True
                     )
-    def run(self):
-        return self.crew.kickoff(inputs={"query": 'Which countries are ODA eligible?'})
+    def run(self,query:str):
+        'Run the agnet'
+        return self.crew.kickoff(inputs={"query": query})
 
 
-if __name__=="__main__":
-    ai=Myagent()
-    print(ai.run())
-    
+# if __name__=="__main__":
+#     obj=Myagent()
+#     print(obj.run(query='which are the (ODA)-eligible countries'))
+#     # retriever = Retriever()
+#     # results = retriever.retrieve("ODA countries")
+#     # print(results)
+#     # retriever = RagretrieverTool()
+#     # print(retriever._run(query="ODA countries"))
