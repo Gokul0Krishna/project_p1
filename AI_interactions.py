@@ -8,6 +8,8 @@ from langchain_chroma import Chroma
 from langchain_openai import AzureOpenAIEmbeddings
 from typing import Type
 from Encoder_tool import Encoder
+from Scraper_tool import Scraper 
+import re
 # from rank_bm25 import BM25Okapi
 
 
@@ -75,7 +77,7 @@ class RagretrieverTool(BaseTool):
         return "\n".join([d.page_content for d in docs]) if docs else "No documents found."
 
 
-class Websitesaver(BaseModel):
+class Websitesaverinput(BaseModel):
     """Input schema for Websitesaver."""
     query: str = Field(..., description="url of a website")
 
@@ -83,37 +85,55 @@ class Websitesaver(BaseModel):
 class WebsitesaverTool(BaseTool):
     name: str = "Website saver tool"
     description: str = "Stores the given data"
-    args_schema: Type[BaseModel] = RagretrieverInput
+    args_schema: Type[BaseModel] = Websitesaverinput
 
-    def _run(self,website:str,**kwargs)->str:
+    def _run(self,website:str,**kwargs):
         """saves the given website."""
-        
-
+        encoder=Encoder()
+        scraper=Scraper()
+        print(website)
+        match = re.search(r"https?://[^\s]+", website)
+        if match:
+            url = match.group(0)
+            print(url)
+            if encoder.checking(website=url):
+                with open('websites.txt','a+') as file:
+                    file.write(f"\n{url}")
+                txt = scraper.scrape(url)
+                chunks = encoder.chunking(text=txt)
+                encoder.embedder(chunks=chunks,source_id=website)
+                print('website saved')
+                return 'website saved'
+            return 'website already exists'
+        return 'no website was given'        
 
 class Myagent(Retriever):
     def __init__(self):
         super().__init__()
 
         self.ragretriever_tool = RagretrieverTool()
+
+        self.websitesaver_tool = WebsitesaverTool()
+        
         self.decider = Agent(
-            role="Decider",
-            goal="Decide which path to follow based on the reasoning output.",
-            backstory="Acts like a traffic controller. Looks at reasoning results and chooses the right workflow branch.",
-            llm=self.model,
-            verbose=True
-        )
+                                role="Decider",
+                                goal="Judge if the user input is a query or an instruction to save data.",
+                                backstory="Acts like a traffic controller. Looks at the input and decides if it's a question to answer or an instruction to store.",
+                                llm=self.model,
+                                verbose=True
+                            )
 
         self.decision_task = Task(
-            description=(
-                "Look at the reasoning output: {reasoning_output}. "
-                "Decide ONE path:\n"
-                "- If it's factual knowledge → assign Summarizer.\n"
-                "- If it looks like structured data / analysis → assign DB Analyst.\n"
-                "Answer ONLY with the chosen role."
-            ),
-            expected_output="Either 'Summarizer' or 'DB Analyst'.",
-            agent=self.decider
-        )
+                                description=(
+                                    "Look at the user input: {query}. "
+                                    "Decide ONE path:\n"
+                                    "- If it's a question (who, what, where, why, how, etc.) → output 'Query'.\n"
+                                    "- If it's an instruction to save or store something (like 'save this website', 'add new website') → output 'Save'.\n"
+                                    "Answer ONLY with 'Query' or 'Save'."
+                                ),
+                                expected_output="Either 'Query' or 'Save'.",
+                                agent=self.decider
+                                )
 
 
         self.reasoning_agent = Agent(
@@ -138,14 +158,25 @@ class Myagent(Retriever):
                     )
     def run(self,query:str):
         'Run the agnet'
-        return self.crew.kickoff(inputs={"query": query})
+        decision_crew = Crew(
+            agents=[self.decider],
+            tasks=[self.decision_task],
+            process="sequential",
+            verbose=True
+        )
+        decision = decision_crew.kickoff(inputs={"query": query})
+        print(f"[Decider] Decision: {decision}")
+        if "Save." in decision:
+            return self.websitesaver_tool._run(website=query)
+        elif "Query" in decision:
+            return self.crew.kickoff(inputs={"query": query})
 
-
-# if __name__=="__main__":
-#     obj=Myagent()
-#     print(obj.run(query='which are the (ODA)-eligible countries'))
-#     # retriever = Retriever()
-#     # results = retriever.retrieve("ODA countries")
-#     # print(results)
-#     # retriever = RagretrieverTool()
-#     # print(retriever._run(query="ODA countries"))
+if __name__=="__main__":
+    # obj=Myagent()
+    # print(obj.run(query='which are the (ODA)-eligible countries'))
+    # print(obj.run(query='save website https://www.chathamhouse.org/topics/refugees-and-migration'))
+    # retriever = Retriever()
+    # results = retriever.retrieve("ODA countries")
+    # print(results)
+    retriever = WebsitesaverTool()
+    print(retriever._run(website='save website https://www.chathamhouse.org/topics/refugees-and-migration'))
