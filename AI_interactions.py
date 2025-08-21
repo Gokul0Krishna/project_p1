@@ -107,7 +107,18 @@ class WebsitesaverTool(BaseTool):
             return 'website already exists'
         return 'no website was given'
 
-        
+class P_S_saver_input(BaseModel):
+    """Input schema for Proposal Suggestion saver."""
+    jsn: str = Field(..., description="P_S_input")
+class P_S_saver_Tool(BaseTool):
+    name: str = " Proposal Suggestion saver tool"
+    description: str = "Stores the given data"
+    args_schema: Type[BaseModel] = P_S_saver_input
+    def _run(self,jsn:str,**kwargs):
+        """saves the given json"""
+        with open('Proposal_Sugessions.txt','w') as file:
+                    file.write(jsn)
+
 
 class Myagent(Retriever):
     def __init__(self):
@@ -116,6 +127,8 @@ class Myagent(Retriever):
         self.ragretriever_tool = RagretrieverTool()
 
         self.websitesaver_tool = WebsitesaverTool()
+
+        self.pssaver_tool=P_S_saver_Tool()
         
         self.decider = Agent(
                                 role="Decider",
@@ -178,6 +191,7 @@ class Myagent(Retriever):
                                     goal="Make tailored suggestions for proposals using structured donor information.",
                                     backstory="An expert at analyzing donor history and designing proposal strategies to maximize funding success.",
                                     llm=self.model,
+                                    tools=[self.pssaver_tool],
                                     verbose=True
                                     )
 
@@ -188,6 +202,8 @@ class Myagent(Retriever):
                                     "For each donor, analyze their background and past projects, then suggest a proposal idea "
                                     "that aligns with their funding interests.\n\n"
                                     "Make your suggestions concise, actionable, and persuasive."
+                                    "After creating the JSON, call the `Proposal Suggestion Saver` tool with the full JSON as input "
+                                    "to save it to disk."
                                 ),
                                 expected_output=(
                                     "Return valid JSON in the following format:\n"
@@ -196,13 +212,14 @@ class Myagent(Retriever):
                                     "    {\n"
                                     "      \"donor\": \"<donor name>\",\n"
                                     "      \"suggestion\": \"<tailored proposal idea for this donor>\"\n"
+                                    "      \"Reason\": \"<give the reason for the proposal(use the context)>\"\n"
                                     "    }\n"
                                     "  ]\n"
                                     "}\n"
                                     "Only output valid JSON, no extra text."
                                 ),
                                 agent=self.proposal_agent
-                                )
+                                )   
 
         
 
