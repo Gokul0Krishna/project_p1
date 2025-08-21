@@ -109,15 +109,24 @@ class WebsitesaverTool(BaseTool):
 
 class P_S_saver_input(BaseModel):
     """Input schema for Proposal Suggestion saver."""
-    jsn: str = Field(..., description="P_S_input")
+    jsn: dict = Field(..., description="P_S_input")
 class P_S_saver_Tool(BaseTool):
     name: str = " Proposal Suggestion saver tool"
     description: str = "Stores the given data"
     args_schema: Type[BaseModel] = P_S_saver_input
-    def _run(self,jsn:str,**kwargs):
+    def _run(self,jsn:dict,**kwargs):
         """saves the given json"""
-        with open('Proposal_Sugessions.txt','w+') as file:
-                    file.write(jsn)
+        with open('Proposal_Sugessions.txt','w+',encoding='utf-8') as file:
+            s='''Proposals\n'''
+            for i in jsn['proposals']:
+                s+='\n'
+                s+=f'{i['donor']}\n'
+                for j in i['suggestions']:
+                    s+=f'\t⭐{j['idea']}\n'
+                    s+=f'\t⭐{j['reason']}\n'
+                    s+='\n'        
+            file.write(s)
+        return "Proposals saved successfully!"         
 
 
 class Myagent(Retriever):
@@ -199,25 +208,43 @@ class Myagent(Retriever):
                                 context=[self.reasoning_task],
                                 description=(
                                     "You are given structured donor information in JSON format:\n"
-                                    "For each donor, analyze their background and past projects, then suggest a proposal idea "
+                                    "For each donor, analyze their background and past projects, then suggest a 4 proposal idea "
+                                    'For each proposal give me the reason for the proposal'
                                     "that aligns with their funding interests.\n\n"
                                     "Make your suggestions concise, actionable, and persuasive."
                                     "After creating the JSON, call the `Proposal Suggestion Saver` tool with the full JSON as input "
                                     "to save it to disk."
                                 ),
                                 expected_output=(
-                                    "Return valid JSON in the following format:\n"
-                                    "{\n"
-                                    "  \"proposals\": [\n"
-                                    "    {\n"
-                                    "      \"donor\": \"<donor name>\",\n"
-                                    "      \"suggestion\": \"<tailored proposal idea for this donor>\"\n"
-                                    "      \"Reason\": \"<give the reason for the proposal(use the context)>\"\n"
-                                    "    }\n"
-                                    "  ]\n"
-                                    "}\n"
-                                    "Only output valid JSON, no extra text."
-                                ),
+                                                    "Return valid JSON in the following format:\n"
+                                                    "{\n"
+                                                    "  \"proposals\": [\n"
+                                                    "    {\n"
+                                                    "      \"donor\": \"<donor name>\",\n"
+                                                    "      \"suggestions\": [\n"
+                                                    "        {\n"
+                                                    "          \"idea\": \"<tailored proposal idea 1>\",\n"
+                                                    "          \"reason\": \"<reason for this idea>\"\n"
+                                                    "        },\n"
+                                                    "        {\n"
+                                                    "          \"idea\": \"<tailored proposal idea 2>\",\n"
+                                                    "          \"reason\": \"<reason for this idea>\"\n"
+                                                    "        },\n"
+                                                    "        {\n"
+                                                    "          \"idea\": \"<tailored proposal idea 3>\",\n"
+                                                    "          \"reason\": \"<reason for this idea>\"\n"
+                                                    "        },\n"
+                                                    "        {\n"
+                                                    "          \"idea\": \"<tailored proposal idea 4>\",\n"
+                                                    "          \"reason\": \"<reason for this idea>\"\n"
+                                                    "        }\n"
+                                                    "      ]\n"
+                                                    "    }\n"
+                                                    "  ]\n"
+                                                    "}\n"
+                                                    "Only output valid JSON, no extra text."
+                                                ),
+
                                 agent=self.proposal_agent
                                 )   
 

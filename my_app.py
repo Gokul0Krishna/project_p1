@@ -11,13 +11,15 @@ if page == "Home":
     if prompt:
         st.write(f'user:{prompt}')
         v=agent.run(query=prompt)
-        st.write('AI')
+        st.write('AI:')
         data = json.loads(v.raw)
         for p in data["proposals"]:
             with st.container():
                 st.markdown(f"### 🏛️ {p['donor']}")
-                st.write(f"**Suggestion:** {p['suggestion']}")
-                st.write(f"**Reason:** {p['Reason']}")
+                for i in p['suggestions']:
+                    st.write(f"**Suggestion:** {i['idea']}")
+                    st.write(f"**Reason:** {i['reason']}")
+                    st.write('\n')    
                 st.divider()  # horizontal separato
 
 elif page == "websites":
