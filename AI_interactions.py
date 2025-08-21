@@ -116,7 +116,7 @@ class P_S_saver_Tool(BaseTool):
     args_schema: Type[BaseModel] = P_S_saver_input
     def _run(self,jsn:str,**kwargs):
         """saves the given json"""
-        with open('Proposal_Sugessions.txt','w') as file:
+        with open('Proposal_Sugessions.txt','w+') as file:
                     file.write(jsn)
 
 
@@ -249,11 +249,11 @@ class Myagent(Retriever):
         else:
             return f"Unknown decision: {decision}"
 
-if __name__=="__main__":
-    obj=Myagent()
-    print('query')
-    print(obj.run(query='Find donors interested in migration and climate issues in Uk'))
-#     print('save')
+# if __name__=="__main__":
+#     obj=Myagent()
+#     print('query')
+#     print(obj.run(query='Find donors interested in migration and climate issues in Uk'))
+# #     print('save')
 #     print(obj.run(query='save website https://www.chathamhouse.org/topics/refugees-and-migration'))
     # retriever = Retriever()
     # results = retriever.retrieve("ODA countries")
