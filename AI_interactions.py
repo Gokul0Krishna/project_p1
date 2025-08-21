@@ -48,7 +48,7 @@ class Retriever(Credentials):
         return self.vectorstore.similarity_search(query, k=top_k)
 
 class RagretrieverInput(BaseModel):
-    """Input schema for HybridRetriever."""
+    """Input schema for Retriever."""
     query: str = Field(..., description="The user query to search for relevant documents.")
 
 # --- Tool definition ---
@@ -105,7 +105,9 @@ class WebsitesaverTool(BaseTool):
                 print('website saved')
                 return 'website saved'
             return 'website already exists'
-        return 'no website was given'        
+        return 'no website was given'
+
+        
 
 class Myagent(Retriever):
     def __init__(self):
@@ -131,7 +133,7 @@ class Myagent(Retriever):
                                     "- If it's an instruction to save or store something (like 'save this website', 'add new website') → output 'Save'.\n"
                                     "Answer ONLY with 'Query' or 'Save'."
                                 ),
-                                expected_output="Either 'Query' or 'Save'.",
+                                expected_output="Either 'Query' or 'Save'",
                                 agent=self.decider
                                 )
 
@@ -146,16 +148,72 @@ class Myagent(Retriever):
                                 )      
 
         self.reasoning_task = Task(
-                                description="Answer the user query: {query}. Use the retriever tool first to gather context, then reason over it.",
-                                expected_output="A clear, helpful answer to the query.",
-                                agent=self.reasoning_agent
+                                    description=(
+                                        "Answer the user query: {query}. "
+                                        "First, use the retriever tool to gather relevant donor-related context. "
+                                        "Then, reason over it and return a structured response."
+                                    ),
+                                    expected_output=(
+                                        "Return the output strictly as JSON in the following format:\n"
+                                        "{\n"
+                                        "  \"donors\": [\n"
+                                        "    {\n"
+                                        "      \"name\": \"<donor name>\",\n"
+                                        "      \"info\": \"<summary about the donor>\",\n"
+                                        "      \"past_projects\": [\n"
+                                        "        {\"name\": \"<project name>\", \"funding\": \"<amount>\"},\n"
+                                        "        ...\n"
+                                        "      ]\n"
+                                        "    }\n"
+                                        "  ]\n"
+                                        "}\n"
+                                        "Only return valid JSON. No extra text.fill as much information as you can."
+                                    ),
+                                    agent = self.reasoning_agent,
+                                    # output_key = "donor_json" 
                                 )
-        self.crew = Crew(
-                    agents=[self.reasoning_agent],
-                    tasks=[self.reasoning_task],
-                    process="sequential",
-                    verbose=True
-                    )
+        
+        self.proposal_agent = Agent(
+                                    role="Proposal Suggestion Maker",
+                                    goal="Make tailored suggestions for proposals using structured donor information.",
+                                    backstory="An expert at analyzing donor history and designing proposal strategies to maximize funding success.",
+                                    llm=self.model,
+                                    verbose=True
+                                    )
+
+        self.proposal_task = Task(
+                                context=[self.reasoning_task],
+                                description=(
+                                    "You are given structured donor information in JSON format:\n"
+                                    "For each donor, analyze their background and past projects, then suggest a proposal idea "
+                                    "that aligns with their funding interests.\n\n"
+                                    "Make your suggestions concise, actionable, and persuasive."
+                                ),
+                                expected_output=(
+                                    "Return valid JSON in the following format:\n"
+                                    "{\n"
+                                    "  \"proposals\": [\n"
+                                    "    {\n"
+                                    "      \"donor\": \"<donor name>\",\n"
+                                    "      \"suggestion\": \"<tailored proposal idea for this donor>\"\n"
+                                    "    }\n"
+                                    "  ]\n"
+                                    "}\n"
+                                    "Only output valid JSON, no extra text."
+                                ),
+                                agent=self.proposal_agent
+                                )
+
+        
+
+        self.resonarcrew = Crew(
+                                agents=[self.reasoning_agent,self.proposal_agent],
+                                tasks=[self.reasoning_task,self.proposal_task],
+                                process="sequential",
+                                verbose=True
+                                )
+                    
+        
     def run(self,query:str):
         'Run the agnet'
         decision_crew = Crew(
@@ -170,17 +228,16 @@ class Myagent(Retriever):
             return self.websitesaver_tool._run(website=query)
 
         elif "Query" in str(decision):
-            return self.crew.kickoff(inputs={"query": query})
-
+            return self.resonarcrew.kickoff(inputs={"query": query})
         else:
-            return f"⚠️ Unknown decision: {decision}"
+            return f"Unknown decision: {decision}"
 
 if __name__=="__main__":
     obj=Myagent()
     print('query')
-    print(obj.run(query='which are the (ODA)-eligible countries'))
-    print('save')
-    print(obj.run(query='save website https://www.chathamhouse.org/topics/refugees-and-migration'))
+    print(obj.run(query='Find donors interested in migration and climate issues in Uk'))
+#     print('save')
+#     print(obj.run(query='save website https://www.chathamhouse.org/topics/refugees-and-migration'))
     # retriever = Retriever()
     # results = retriever.retrieve("ODA countries")
     # print(results)
