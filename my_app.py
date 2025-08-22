@@ -16,6 +16,7 @@ if page == "Home":
         for p in data["proposals"]:
             with st.container():
                 st.markdown(f"### 🏛️ {p['donor']}")
+                st.write(f"**INFO📚:{p['Info']}**\n")
                 for i in p['suggestions']:
                     st.write(f"**Suggestion:** {i['idea']}")
                     st.write(f"**Reason:** {i['reason']}")

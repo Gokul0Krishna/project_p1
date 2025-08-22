@@ -27,7 +27,7 @@ class Credentials():
             model = 'azure/gpt-4o',
             api_base = self.llm_base_url,
             api_key = self.llm_api_key,
-            api_version = self.llm_version,
+            api_version = self.llm_version
         )
 
 class Retriever(Credentials):
@@ -72,7 +72,7 @@ class RagretrieverTool(BaseTool):
                                 embedding_function = embedding
                                 )
         print(f"[RetrieverTool] Running retrieval for query: {query}")
-        docs=vectorstore.similarity_search(query, k=3)
+        docs=vectorstore.similarity_search(query, k=20)
         print(f"[RetrieverTool] Found {len(docs)} docs")
         return "\n".join([d.page_content for d in docs]) if docs else "No documents found."
 
@@ -121,9 +121,10 @@ class P_S_saver_Tool(BaseTool):
             for i in jsn['proposals']:
                 s+='\n'
                 s+=f'{i['donor']}\n'
+                s+=f'INFO:{i['Info']}\n'
                 for j in i['suggestions']:
-                    s+=f'\t⭐{j['idea']}\n'
-                    s+=f'\t⭐{j['reason']}\n'
+                    s+=f'\t⭐Proposal:{j['idea']}\n'
+                    s+=f'\t⭐Reason:{j['reason']}\n'
                     s+='\n'        
             file.write(s)
         return "Proposals saved successfully!"         
@@ -181,7 +182,7 @@ class Myagent(Retriever):
                                         "  \"donors\": [\n"
                                         "    {\n"
                                         "      \"name\": \"<donor name>\",\n"
-                                        "      \"info\": \"<summary about the donor>\",\n"
+                                        "      \"info\": \"<any and all information about the donor relating to the cause(use numbers if available)>\",\n"
                                         "      \"past_projects\": [\n"
                                         "        {\"name\": \"<project name>\", \"funding\": \"<amount>\"},\n"
                                         "        ...\n"
@@ -208,6 +209,7 @@ class Myagent(Retriever):
                                 context=[self.reasoning_task],
                                 description=(
                                     "You are given structured donor information in JSON format:\n"
+                                    "For each donor,give information about the donner's past donations or work "
                                     "For each donor, analyze their background and past projects, then suggest a 4 proposal idea "
                                     'For each proposal give me the reason for the proposal'
                                     "that aligns with their funding interests.\n\n"
@@ -221,6 +223,7 @@ class Myagent(Retriever):
                                                     "  \"proposals\": [\n"
                                                     "    {\n"
                                                     "      \"donor\": \"<donor name>\",\n"
+                                                    "      \"Info\": \"<information about the donner's past donations or work>\",\n"
                                                     "      \"suggestions\": [\n"
                                                     "        {\n"
                                                     "          \"idea\": \"<tailored proposal idea 1>\",\n"
@@ -280,9 +283,8 @@ class Myagent(Retriever):
 #     obj=Myagent()
 #     print('query')
 #     print(obj.run(query='Find donors interested in migration and climate issues in Uk'))
-# #     print('save')
-#     print(obj.run(query='save website https://www.chathamhouse.org/topics/refugees-and-migration'))
+#     print('save')
+    # print(obj.run(query='save website https://www.chathamhouse.org/topics/refugees-and-migration'))
     # retriever = Retriever()
     # results = retriever.retrieve("ODA countries")
     # print(results)
-    
