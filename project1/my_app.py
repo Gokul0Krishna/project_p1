@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 from AI_interactions import Myagent
+
 agent=Myagent()
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("Go to", ["Home","websites"])
@@ -28,5 +29,3 @@ elif page == "websites":
     with open('websites.txt','r+') as file:
         for i in file:
             st.write(i)
-
-
