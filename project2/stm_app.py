@@ -1,12 +1,10 @@
-# from audio_control import Audio
-
-# obj=Audio()
-# while True:
-#     x=obj.listen()
-#     print(x)
-
 import streamlit as st
 from AI_agents import AI
+from audio_control import Call
+from audiorecorder import audiorecorder
+import io
+
+voice = Call()
 ai=AI()
 chats = {
         'user':[],
@@ -31,9 +29,22 @@ if page=='chat':
         chats['AI'].append(result)
 
 elif page=='call':
-    st.title('Call bot') 
-        # Place button inside the styled div
-    st.markdown('<div class="centered-button">', unsafe_allow_html=True)
-    if st.button("Click Me!", key="center_button"):
-        st.success("🎉 You clicked the button!")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.title("🎙️ Record Audio in Streamlit")
+
+# Add recorder
+    audio = audiorecorder("Click to record", "Click to stop recording")
+
+    # If audio is recorded
+    if len(audio) > 0:
+        st.audio(audio.export(io.BytesIO(), format="wav").read(), format="audio/wav")
+
+        wav_io = io.BytesIO()
+        audio.export(wav_io, format="wav")
+        wav_io.seek(0)
+        txt = voice.listen(audio=wav_io)
+        st.write(txt)
+        response = ai.rn(query=txt)
+        st.write(response)
+        voice.speak(response)
+
+        

@@ -18,21 +18,27 @@ inventory = {
     "puma shorts": 8
 }
 
-class InformationretrivalTool(BaseTool):
-    name: str = "Information retrival Tool"
-    description: str = "retrives the stored data"
+class ReturnretrivalTool(BaseTool):
+    name: str = "Return information retrival Tool"
+    description: str = "retrives the return policy data"
     def _run(self):
         return_policy = """
                         You can return products within 30 days of purchase with the original receipt.
                         Refunds will be issued to the original payment method.
                         """
-
+        return return_policy
+    
+class InventoryretrivalTool(BaseTool):
+    name: str = "Inventory information retrival Tool"
+    description: str = "retrives the Inventory data"
+    def _run(self):
         inventory = {
-                    "nike shoes": 15,
-                    "adidas hoodie": 0,
-                    "puma shorts": 8
+                        "nike shoes": 15,
+                        "adidas hoodie": 0,
+                        "puma shorts": 8
                     }
-        return return_policy,inventory
+        return inventory
+
 
 
 class AI():
@@ -51,22 +57,37 @@ class AI():
             api_version = self.llm_version
         )
     
-        tool=InformationretrivalTool()
+        inventory_tool = InventoryretrivalTool()
+        return_policy_tool = ReturnretrivalTool()
+
         self.support_agent = Agent(
-                                role="Customer Support Assistant",
-                                goal="Answer customers's querries about orders, returns, and inventory using provided tool",
-                                backstory="You are a JD Sports support agent.",
-                                tools=[tool],
-                                llm=self.model,
-                                verbose=True
-                            )
+            role="Customer Support Assistant",
+            goal=(
+                "Provide accurate and helpful answers to customer questions about "
+                "orders, product availability, and return policies. "
+                "Use the tools provided whenever needed: "
+                "- Use the Inventory Retrieval Tool for questions about stock levels, product details, or availability. "
+                "- Use the Return Policy Retrieval Tool for questions about return rules, timelines, or procedures. "
+                "If both topics are involved, combine information from both tools into one clear response."
+            ),
+            backstory="You are a JD Sports support agent who always relies on internal tools for accurate information.",
+            tools=[inventory_tool, return_policy_tool],
+            llm=self.model,
+            verbose=True
+        )
 
         # Task definition
         self.task = Task(
-                            description="Answer the customer query: {query} about returns or inventory using the given tool",
-                            agent=self.support_agent,
-                            expected_output="A helpful and concise natural language response to the customer's query"
-                        )
+            description=(
+                "Answer the customer query: {query}. "
+                "Use the Inventory Retrieval Tool for inventory-related questions "
+                "and the Return Policy Retrieval Tool for return-related questions. "
+                "If both apply, use both tools and provide a single, concise answer."
+            ),
+            agent=self.support_agent,
+            expected_output="A clear and helpful natural language response that answers the customer's query using the correct tools."
+        )
+
 
     
     def rn(self,query:str):
